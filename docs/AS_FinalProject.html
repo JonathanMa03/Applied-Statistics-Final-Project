@@ -561,11 +561,13 @@ and interactions (X*Y=X+Y+XY) instead of (X:Y=XY)?</strong></p>
 <p>While individual effects of alcohol use (Dalc, Walc) and gender (sex)
 were not always statistically significant on their own, the interaction
 between weekend alcohol use and gender (Walc:sex) was highly
-significant. This indicates that the effect of alcohol on grades is
-conditional on gender — a classic case where interaction modeling is
-essential. Following statistical best practices, we retained main
-effects alongside interaction terms to ensure proper model specification
-and accurate interpretation of conditional relationships.</p>
+significant. <strong>This indicates that the effect of alcohol on grades
+is conditional on gender</strong> — a classic case where interaction
+modeling is essential. Following statistical best practices, we retained
+main effects alongside interaction terms to ensure proper model
+specification and accurate interpretation of conditional relationships.
+We can confirm this through an analysis of variance between the full
+model and the interaction model.</p>
 <pre><code>## Analysis of Variance Table
 ## 
 ## Model 1: avggrades ~ school + sex + age + address + famsize + Pstatus + 
@@ -615,25 +617,49 @@ observational studies.</p>
 <li>Does alcohol consumption have any predictive power over student
 average grades?</li>
 </ol>
-<p>Yes — alcohol consumption does show some predictive power over
-student average grades, particularly weekend drinking (Walc). In a fully
-adjusted linear regression model that controls for over 30 covariates,
-higher weekend alcohol use was associated with lower average grades,
-although this effect was not significant, and either was Weekday
-drinking (Dalc), suggesting that the timing and context of alcohol use
-may matter more than frequency alone.</p>
+<p><strong>Yes — alcohol consumption does show some predictive power
+over student average grades, particularly weekend drinking
+(Walc)</strong>. In a fully adjusted linear regression model that
+controls for over 30 covariates, higher weekend alcohol use was
+associated with lower average grades, although this effect was not
+significant, and either was Weekday drinking (Dalc), suggesting that the
+<strong>timing and context of alcohol use may matter more than frequency
+alone.</strong></p>
 <ol start="2" style="list-style-type: decimal">
 <li>How does this differ by gender?</li>
 </ol>
 <p>The relationship between alcohol consumption and grades differs
 significantly by gender, particularly for weekend drinking. A
 statistically significant interaction was found between Walc and gender
-(sexM:Walc, p = 0.00179), indicating that weekend alcohol consumption
-negatively impacts male students’ grades more strongly than females’. No
-such interaction was observed for weekday drinking (Dalc:sexM, p =
-0.539), suggesting that this effect is specific to weekend behavior. An
-ANOVA comparison confirmed that adding these interaction terms
-significantly improved the model fit (p = 0.00318).</p>
+(sexM:Walc, p = 0.00179), indicating that <strong>weekend alcohol
+consumption negatively impacts male students’ grades more strongly than
+females’</strong>. No such interaction was observed for weekday drinking
+(Dalc:sexM, p = 0.539), suggesting that this effect is specific to
+weekend behavior. An ANOVA comparison confirmed that adding these
+interaction terms significantly improved the model fit (p =
+0.00318).</p>
+<ol start="3" style="list-style-type: decimal">
+<li>Remark: What about distribution assumptions?</li>
+</ol>
+<p>For an OLS Model to function efficiently, it must meet three key
+assumptions: normality of residuals, homoskedasticity and linearity. We
+tested key regression assumptions to validate model reliability. The
+Shapiro-Wilk test for residual normality yielded a significant result (p
+&lt; 0.001), suggesting a <strong>deviation from perfect
+normality</strong>. However, due to the large sample size, this may
+reflect minor deviations without practical concern. The Breusch-Pagan
+test for homoscedasticity was not significant (p = 0.059), indicating
+that the assumption of <strong>constant variance is reasonably
+satisfied</strong>. Together, these results support the robustness of
+the regression model for inference, despite slight normality departures.
+While formal tests indicated some deviation from the normality
+assumption, our analysis is focused on exploring relationships and
+interpreting conditional effects, rather than on making precise
+predictions. In such explanatory models, modest violations of regression
+assumptions (especially normality of residuals) are generally
+acceptable, provided the results are interpreted with caution.
+Importantly, the model still meets key requirements like linearity and
+homoscedasticity, which support the validity of our inferences.</p>
 </div>
 
 
