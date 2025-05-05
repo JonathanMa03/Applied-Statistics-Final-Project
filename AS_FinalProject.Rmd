@@ -1,0 +1,220 @@
+---
+title: "Alcohol Consumption and Average Grades¶"
+output: 
+    html_document:
+        toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# A Dataset Introduction
+
+The dataset provides a comprehensive profile of secondary school students, capturing demographic, academic, family, and lifestyle information with the goal of understanding academic performance, particularly final grades in Math or Portuguese (G3). Students attend either the Gabriel Pereira (GP) or Mousinho da Silveira (MS) schools (school), and are identified by sex (male or female) and age (ranging from 15 to 22). Key family background variables include address (urban or rural), famsize, Pstatus (whether parents live together), and parental education levels (Medu, Fedu) and jobs (Mjob, Fjob). The dataset also notes the reason for school choice and the student’s guardian.
+
+Academic behavior is described through traveltime, studytime, and failures, while support and enrichment opportunities are recorded through schoolsup, famsup, paid, activities, and early childhood education (nursery). Aspirations for higher education (higher) and household internet access (internet) are also included. Social and behavioral factors such as romantic relationship status, family relationship quality (famrel), leisure time (freetime, goout), alcohol consumption (Dalc, Walc), health status, and absences provide further context.
+
+Finally, student performance is tracked via three grades—G1, G2, and G3—with G3 serving as the target variable for performance analysis. This rich dataset allows for multifaceted exploration of factors influencing student outcomes
+
+# Predictors of Average Grades. 
+* Does alcohol consumption have any predictive power over student average grades? 
+* How does this differ by gender? 
+
+I am also interested in learning what other features may be important predictors of student grades. I am not going to attempt to predict student grade evolution over marking periods since all the features in the dataset (other than grades) remain constant over marking periods and are general descriptors of student backgrounds. This study investigates whether alcohol consumption meaningfully predicts student academic performance, and whether this relationship differs by gender. After merging math and Portuguese course data, we created a comprehensive dataset with average grades as the outcome variable.
+
+A linear regression model using over 30 socioeconomic, academic, and behavioral covariates reveals that weekend alcohol consumption (Walc) is a statistically significant negative predictor of average grades among male students only, while weekday alcohol use (Dalc) does not show a significant effect for either gender. The inclusion of interaction terms between alcohol variables and gender significantly improves model fit, as confirmed by an ANOVA test (p = 0.00318), rejecting the null hypothesis that gender does not modify the effect of alcohol use on grades.
+
+I first conduct some EDA to see if the two tables (with math and Portuguese grades) can be combined. After combining the two tables, I obtain student average grades over marking periods and estimate a linear model with gender differencing after fine tuning to explore differences
+
+## ETL (Explore, Transform, Load)
+First, *I would ideally like to combine both tables into one*. But before that I would like to get a feeling if math and Portuguese grades are comparable. There is a number of students who are repeated in both tables, so I would use their records to examine if math and Portuguese grades are comparable.
+
+```{r libs,message=FALSE,echo=FALSE}
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(gridExtra)
+library(alluvial)
+library(extrafont)
+```
+
+```{r data read, include=FALSE}
+d1=read.table("/Users/jonathanma/Downloads/studentGrades/student-mat.csv",sep=",",header=TRUE)
+d2=read.table("/Users/jonathanma/Downloads/studentGrades/student-por.csv",sep=",",header=TRUE)
+data.source=merge(d1,d2,by=c("school","sex","age","address","famsize","Pstatus",
+                            "Medu","Fedu","Mjob","Fjob","reason","nursery","internet",
+                            "guardian","guardian","traveltime","studytime","failures",
+                            "schoolsup","famsup","activities","higher","romantic",
+                            "famrel","freetime","goout","Dalc","Walc","health","absences"))
+```
+
+There are `r nrow(data.source)` students who belong to both tables, and I am going to examine their average math and Portuguese grades as a test case. Once we clarify the relationship between the porteguese and math class, we can determine whether or not to merge the datasets.
+
+### Data Prep: Can we merge the datasets?
+
+```{r merge data, echo=FALSE, message=FALSE}
+data.source$mathgrades=rowMeans(cbind(data.source$G1.x,data.source$G2.x,data.source$G3.x))
+data.source$portgrades=rowMeans(cbind(data.source$G1.y,data.source$G2.y,data.source$G3.y))
+
+data.source$Dalc <- as.factor(data.source$Dalc)      
+data.source$Dalc <- mapvalues(data.source$Dalc, 
+                              from = 1:5, 
+                              to = c("Very Low", "Low", "Medium", "High", "Very High"))
+
+str1=ggplot(data.source, aes(x=mathgrades, y=portgrades)) +
+ geom_point(aes(colour=factor(Dalc)))+ scale_colour_hue(l=25,c=150)+
+geom_smooth(method = "lm", se = FALSE)
+
+data.source$Walc <- as.factor(data.source$Walc)      
+data.source$Walc <- mapvalues(data.source$Walc, 
+                              from = 1:5, 
+                              to = c("Very Low", "Low", "Medium", "High", "Very High"))
+
+str2=ggplot(data.source, aes(x=mathgrades, y=portgrades))+
+geom_point(aes(colour=factor(Walc)))+ scale_colour_hue(l=25,c=150)+
+geom_smooth(method = "lm", se = FALSE)
+
+#cor(data.source$portgrades,data.source$mathgrades)
+
+grid.arrange(str1,str2,nrow=2)
+```
+
+```{r fixed data, echo=FALSE, message=FALSE}
+d3<-rbind(d1,d2) 
+d3norepeats<-d3 %>% distinct(school,sex,age,address,famsize,Pstatus,
+                Medu,Fedu,Mjob,Fjob,reason,
+                guardian,traveltime,studytime,failures,
+                schoolsup, famsup,activities,nursery,higher,internet,
+                romantic,famrel,freetime,goout,Dalc,Walc,health,absences, .keep_all = TRUE)
+d3norepeats$avggrades=rowMeans(cbind(d3norepeats$G1,d3norepeats$G2,d3norepeats$G3))
+d3norepeats<-d3norepeats[,-(31:33)]
+```
+
+The two scatter plots have few implications. First, among the 85 students, **no one consumed high or very high levels of alcohol on daily basis**. Second, almost all of those who earned relatively high scores consumed very low levels of alcohol on weekdays. These two are expected outcomes. Third, **math and Portuguese grades seem to correlate highly with each other**. When I calculate the correlation, it is about 0.74. Upon regressing the two, about 55% of the variation in Portuguese grades can be explained by the variation in math grades. In my view, this is an indication that I can go ahead and combine the two tables together without worrying much about the subject matter, average grades in math or Portuguese reflect general student aptitude. The resulting dataset is binded by distinct values and has `r nrow(d3norepeats)` observations, since we removed duplicate values.
+
+## What does the distribution of average grade by alcohol consumption look like?
+
+Now a basic boxplot of average subject grades grouped by the levels of daily alcohol consumption.
+
+```{r GradeAlc, echo=FALSE, message=FALSE}
+ggplot(d3norepeats, aes(x=Dalc, y=avggrades, group=Dalc))+
+  geom_boxplot()+
+  theme(legend.position="none")+
+  xlab("Daily Alcohol consumption")+
+  ylab("Average Grades")+
+  ggtitle("Average Grade by Dalc")
+```
+
+The median average grade is visually **higher** among those students who had very low levels of daily alcohol consumption. However, the median grade of the students with medium, high, and very high levels of daily alcohol consumption doesn't seem to be very different.
+
+## What about average grades and gender?
+
+We would also like to see if there is a gender difference in average grades
+
+```{r GradeGender, echo=FALSE, message=FALSE}
+ggplot(d3norepeats, aes(x=avggrades, y=sex, group=sex))+
+  geom_boxplot()+
+  theme(legend.position="none")+
+  xlab("Average Grades")+
+  ylab("Gender")+
+  ggtitle("Average Grade by Gender")
+```
+
+We can see from this that Females appears slightly **left-skewed, with a longer tail on the lower end**, while Males appear more symmetric. Both genders have a similar interquartile range (IQR). However, females show more extreme low outliers—multiple points below the whisker—suggesting a larger concentration of very low scores.
+
+## Effect Modeling
+
+Now that we have a good grasp of alcohol consumption and gender on average grades, we can make a model to see the important predictors. We will first start off by doing a full regression model, but only displaying model fit statistics and significant covariates.
+
+> Variable "failures" is closely related to my target variable, avggrades. Since past failures and avggrades represent the same general student aptitude (thus it is rather a target rather than a feature), I will remove variable "failures" from the dataset.
+
+### Linear Model
+
+```{r NullModel, echo=FALSE, message=FALSE}
+failureind<-which(names(d3norepeats)=="failures")
+d3norepeats<-d3norepeats[,-failureind]
+
+lm2<-lm(avggrades~., data=d3norepeats[,1:30])
+model_summary <- summary(lm2)
+coefs <- model_summary$coefficients
+
+cat("\nSignificant Variables:\n")
+significant_vars <- coefs[coefs[, 4] < 0.05, , drop = FALSE]
+print(significant_vars)
+
+cat("\nOther Variables of Interest:\n")
+interest_vars <- coefs[rownames(coefs) %in% c("Dalc", "Walc", "sexM"), , drop = FALSE]
+print(interest_vars)
+
+# Print R-squared and Adjusted R-squared
+cat("\nModel Fit:\n")
+cat("R-squared: ", round(model_summary$r.squared, 4), "\n")
+cat("Adjusted R-squared: ", round(model_summary$adj.r.squared, 4), "\n")
+```
+
+Adjusted R-squared in the above regression is only 0.17, which is quite low, but expected since we are exploring relations and not trying to predict. It implies that only 17% of the variation in the average grades is explained by the variation in everything else. See Comments for more details. **Both alcohol consumption types were not statistically significant, either was gender**.
+
+We now have a good idea of what predictors are significant, and now we can test interaction terms.
+
+```{r InteractionModel, echo=FALSE, message=FALSE}
+# (assumes avggrades is your dependent variable)
+excluded_vars <- c("avggrades", "Dalc", "Walc", "sex")
+included_vars <- setdiff(names(d3norepeats[, 1:30]), excluded_vars)
+
+# Build model formula explicitly
+formula_full <- as.formula(paste(
+  "avggrades ~ Dalc * sex + Walc * sex +",
+  paste(included_vars, collapse = " + ")
+))
+
+# Fit model
+lm_1 <- lm(formula_full, data = d3norepeats)
+
+model_summary <- summary(lm_1)
+coefs <- model_summary$coefficients
+significant_vars <- coefs[coefs[, 4] < 0.05, , drop = FALSE]
+
+# Print significant variables
+cat("Significant predictors (p < 0.05):\n")
+print(significant_vars)
+
+# Print R-squared and Adjusted R-squared
+cat("\nModel Fit:\n")
+cat("R-squared: ", round(model_summary$r.squared, 4), "\n")
+cat("Adjusted R-squared: ", round(model_summary$adj.r.squared, 4), "\n")
+```
+
+After controlling for 30+ socioeconomic, academic, and behavioral variables, weekend alcohol consumption (Walc) significantly predicts lower academic performance among male students, but not females. Weekday alcohol use (Dalc) showed no significant predictive power in either gender. 
+
+**An important question to ask: Why are we testing both effects and interactions (X\*Y=X+Y+XY) instead of (X:Y=XY)?**
+
+While individual effects of alcohol use (Dalc, Walc) and gender (sex) were not always statistically significant on their own, the interaction between weekend alcohol use and gender (Walc:sex) was highly significant. **This indicates that the effect of alcohol on grades is conditional on gender** — a classic case where interaction modeling is essential. Following statistical best practices, we retained main effects alongside interaction terms to ensure proper model specification and accurate interpretation of conditional relationships. We can confirm this through an analysis of variance between the full model and the interaction model.
+
+```{r ANOVA, echo=FALSE, message=FALSE}
+anova(lm2, lm_1)
+```
+The interaction terms significantly improve the model fit. Since the p-value is 0.00318, you reject the null hypothesis that the simpler model is sufficient. **The effect of alcohol consumption on grades significantly differs by gender.**
+
+
+## Results
+
+Our findings show that the effect of alcohol consumption on academic performance is *not uniform* across genders. Specifically, weekend drinking negatively affects male students’ grades, while no such effect is observed for females. This suggests targeted interventions may be warranted for different groups.
+
+What's interesting about these results is that some features that would be conventionally thought as important did not end up in the top ten list (I would speculate that the variables such as Pstatus, famsupport, famrel, & absences are among those). The degree of fit is also quite low, those this is likely due to model misspecification, as there are so many factor and likert variables that regression trees might be a better fit.
+
+Social research should prioritize causal inference, robustness, and effect size interpretation, not just variance explained. Endogeneity, omitted variables, and selection bias are more prevelant in observational studies. 
+
+# Conclusions
+
+1. Does alcohol consumption have any predictive power over student average grades?
+
+**Yes — alcohol consumption does show some predictive power over student average grades, particularly weekend drinking (Walc)**. In a fully adjusted linear regression model that controls for over 30 covariates, higher weekend alcohol use was associated with lower average grades, although this effect was not significant, and either was Weekday drinking (Dalc), suggesting that the **timing and context of alcohol use may matter more than frequency alone.**
+
+2. How does this differ by gender?
+
+The relationship between alcohol consumption and grades differs significantly by gender, particularly for weekend drinking. A statistically significant interaction was found between Walc and gender (sexM:Walc, p = 0.00179), indicating that **weekend alcohol consumption negatively impacts male students’ grades more strongly than females’**. No such interaction was observed for weekday drinking (Dalc:sexM, p = 0.539), suggesting that this effect is specific to weekend behavior. An ANOVA comparison confirmed that adding these interaction terms significantly improved the model fit (p = 0.00318).
+
+3. Remark: What about distribution assumptions?
+
+For an OLS Model to function efficiently, it must meet three key assumptions: normality of residuals, homoskedasticity and linearity. We tested key regression assumptions to validate model reliability. The Shapiro-Wilk test for residual normality yielded a significant result (p < 0.001), suggesting a **deviation from perfect normality**. However, due to the large sample size, this may reflect minor deviations without practical concern. The Breusch-Pagan test for homoscedasticity was not significant (p = 0.059), indicating that the assumption of **constant variance is reasonably satisfied**. Together, these results support the robustness of the regression model for inference, despite slight normality departures. While formal tests indicated some deviation from the normality assumption, our analysis is focused on exploring relationships and interpreting conditional effects, rather than on making precise predictions. In such explanatory models, modest violations of regression assumptions (especially normality of residuals) are generally acceptable, provided the results are interpreted with caution. Importantly, the model still meets key requirements like linearity and homoscedasticity, which support the validity of our inferences.
+
